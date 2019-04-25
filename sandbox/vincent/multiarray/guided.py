@@ -87,9 +87,8 @@ def get_main_class(pred):
 	# Get the most seen label
 	if np.sum(count) == 0:
 		return label2id['Background']
-	# if count[label2id['Person']] > 0:
-	# 	# print count[label2id['Person']], '%%'
-	# 	return label2id['Person']
+	if count[label2id['Person']] > 0:
+		return label2id['Person']
 	else:
 		return np.argmax(count)
 
@@ -108,7 +107,6 @@ def get_main_class_from_groundtruth(gt):
 	if np.sum(count) == 0:
 		return label2id['Background']
 	if count[label2id['Person']] > 0:
-		# print count[label2id['Person']], '%%'
 		return label2id['Person']
 	else:
 		return np.argmax(count)
@@ -127,7 +125,7 @@ def compute_argmax_mask(pred, id):
 	return mask
 
 
-def compute_guided_filter_mask(img_y, pred, id):
+def compute_guided_filter_segmentation(img_y, pred):
 	# Parameters
 	radius = 10
 	eps = 0.001
@@ -143,6 +141,15 @@ def compute_guided_filter_mask(img_y, pred, id):
 
 	# Compute the mask
 	argmax = np.argmax(pred2, axis = 0)
+	return argmax
+
+
+def compute_guided_filter_mask(img_y, pred, id):
+
+	# Compute the segmentation
+	argmax = compute_guided_filter_segmentation(img_y, pred)
+
+	# Deduce the mask for the given id
 	mask = np.zeros(argmax.shape, np.uint8)
 	mask[argmax == id] = 1
 	return mask
@@ -278,7 +285,7 @@ def compute_score(gt_mask, test_mask):
 	return accuracy, iou
 
 
-def guided_filter_precision():
+def measure_guided_filter():
 
 	# Paths
 	pascalvoc2012_folder = '/Users/vincent/Downloads/VOCdevkit/VOC2012'
@@ -300,6 +307,7 @@ def guided_filter_precision():
 	# List of classification images
 	classif_path_list = sorted(glob(os.path.join(pascalvoc2012_folder, 'SegmentationClass', '*.png')))
 	count = 0
+	tic = time()
 	for classif_path in classif_path_list:
 
 		count += 1
@@ -316,6 +324,10 @@ def guided_filter_precision():
 
 		# Grountruth mask
 		gt_mask = compute_groundtruth_mask(gt_classif, id)
+
+		# Grountruth segmentation
+		gt_seg = gt_classif
+		gt_seg[gt_seg == 255] = 0
 
 		# Read the input image
 		img_bgr = cv2.imread(image_path)
@@ -348,8 +360,9 @@ def guided_filter_precision():
 		guided_iou.append(iou)
 
 		# Print during iterations
-		if count % 10 == 0:
-			print('Image         : %5d / %5d' % (count, len(classif_path_list)))
+		if count % 100 == 0:
+			toc = time()
+			print('Image         : %5d / %5d (%.1f s)' % (count, len(classif_path_list), toc-tic))
 			# print('Naive         : Precision = %5.2f %%, Recall = %5.2f %%, Accuracy = %5.2f %%, IoU = %5.2f %%' % (np.mean(naive_precision), np.mean(naive_recall), np.mean(naive_accuracy), np.mean(naive_iou)))
 			# print('Guided filter : Precision = %5.2f %%, Recall = %5.2f %%, Accuracy = %5.2f %%, IoU = %5.2f %%' % (np.mean(guided_precision), np.mean(guided_recall), np.mean(guided_accuracy), np.mean(guided_iou)))
 			print('Naive         : Accuracy = %5.2f %%, IoU = %5.2f %%' % (np.mean(naive_accuracy), np.mean(naive_iou)))
@@ -362,10 +375,96 @@ def guided_filter_precision():
 	# print('Guided filter : Precision = %5.2f %%, Recall = %5.2f %%, Accuracy = %5.2f %%, IoU = %5.2f %%' % (np.mean(guided_precision), np.mean(guided_recall), np.mean(guided_accuracy), np.mean(guided_iou)))
 	print('Naive         : Accuracy = %5.2f %%, IoU = %5.2f %%' % (np.mean(naive_accuracy), np.mean(naive_iou)))
 	print('Guided filter : Accuracy = %5.2f %%, IoU = %5.2f %%' % (np.mean(guided_accuracy), np.mean(guided_iou)))
-	
+
+
+def update_confusion_matrix(seg0, seg1, matrix, nb_classes):
+	# for y, x in zip(seg0, seg1):
+	# 	matrix[y,x] += 1
+	for x in np.ravel_multi_index((seg0, seg1), (nb_classes, nb_classes)):
+		matrix.flat[x] += 1
+
+
+def compute_miou(matrix):
+	intersection = matrix.diagonal()
+	sum_h = matrix.sum(axis=0)
+	sum_v = matrix.sum(axis=1)
+	union = sum_h + sum_v - intersection
+	iou = intersection / union.astype(np.float64)
+	miou = np.mean(iou).astype(np.float32)
+	return miou
+
+
+def measure_guided_filter_miou():
+
+	# Paths
+	pascalvoc2012_folder = '/Users/vincent/Downloads/VOCdevkit/VOC2012'
+	model_path = '../../../models/MultiArrayDeepLab.mlmodel'
+
+	# Read the model
+	model = coremltools.models.MLModel(model_path)
+
+	# Initialize the confusion matrices
+	nb_classes = len(labels)
+	naive_matrix = np.zeros((nb_classes, nb_classes), dtype=np.int64)
+	guided_matrix = np.zeros((nb_classes, nb_classes), dtype=np.int64)
+
+	# List of classification images
+	classif_path_list = sorted(glob(os.path.join(pascalvoc2012_folder, 'SegmentationClass', '*.png')))
+	count = 0
+	tic = time()
+	for classif_path in classif_path_list:
+
+		# Get image name and path
+		image_name = os.path.splitext(os.path.split(classif_path)[1])[0]
+		image_path = os.path.join(pascalvoc2012_folder, 'JPEGImages', image_name + '.jpg')
+
+		# Grountruth segmentation
+		gt_seg = np.array(Image.open(classif_path))
+		gt_seg[gt_seg == 255] = 0  # Remap 'void' pixels as background
+		gt_seg = gt_seg.flatten()
+
+		# Read the input image
+		img_bgr = cv2.imread(image_path)
+		img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+		img_y = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+
+		# Prediction
+		pred = predict(model, img_rgb)
+
+		# Naive segmentation
+		naive_seg = np.argmax(pred, axis=0)
+		naive_seg = naive_seg.flatten()
+
+		# Update the confusion matrix
+		update_confusion_matrix(gt_seg, naive_seg, naive_matrix, nb_classes)
+
+		# Guided filter segmentation
+		guided_seg = compute_guided_filter_segmentation(img_y, pred)
+		guided_seg = guided_seg.flatten()
+
+		# Update the confusion matrix
+		update_confusion_matrix(gt_seg, guided_seg, guided_matrix, nb_classes)
+
+		# Print
+		count += 1
+		if count % 100 == 0:
+			toc = time()
+			print('Image       : %5d / %5d (%.1f s)' % (count, len(classif_path_list), toc-tic))
+			print('Naive  mIoU : %5.2f %%' % (100. * compute_miou(naive_matrix)))
+			print('Guided mIoU : %5.2f %%' % (100. * compute_miou(guided_matrix)))
+			print
+			sys.stdout.flush()
+			tic = toc
+			break
+
+	# Final print
+	print('Naive  mIoU : %5.2f %%' % (100. * compute_miou(naive_matrix)))
+	print('Guided mIoU : %5.2f %%' % (100. * compute_miou(guided_matrix)))
+
 
 if __name__ == '__main__':
 
 	# main()
 	# process_all_images()
-	guided_filter_precision()
+	# measure_guided_filter()
+	measure_guided_filter_miou()
