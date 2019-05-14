@@ -117,9 +117,20 @@ def compute_mask_from_segmentation(seg, id):
 	return mask
 
 
-def generate_red_illustration(rgb, mask, apply_rgb2bgr_conversion=True):
+def generate_red_illustration(rgb, mask, apply_rgb2bgr_conversion=False):
 	output = rgb.copy()
 	output[:, :, 0][mask == 1] = 255
+	if apply_rgb2bgr_conversion:
+		return cv2.cvtColor(output, cv2.COLOR_RGB2BGR)
+	else:
+		return output
+
+
+def generate_sticker_illustration(rgb, mask, apply_rgb2bgr_conversion=False):
+	output = rgb.copy()
+	output[:, :, 0][mask == 0] = 255
+	output[:, :, 1][mask == 0] = 255
+	output[:, :, 2][mask == 0] = 255
 	if apply_rgb2bgr_conversion:
 		return cv2.cvtColor(output, cv2.COLOR_RGB2BGR)
 	else:
@@ -174,6 +185,19 @@ def compute_grabcut_mask(mask, img):
 	bgdModel = np.zeros((1,65), np.float64)
 	fgdModel = np.zeros((1,65), np.float64)	
 	cv2.grabCut(img, output_mask, None, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_MASK)
+
+	# Deduce final mask
+	output_mask = np.where((output_mask==2)|(output_mask==0), 0, 1).astype('uint8')
+	return output_mask
+
+
+def compute_grabcut_mask_from_quadmap(grabcut_mask, img, iterations=5):
+
+	# Apply the GrabCut algorithm
+	output_mask = grabcut_mask.copy()
+	bgdModel = np.zeros((1,65), np.float64)
+	fgdModel = np.zeros((1,65), np.float64)	
+	cv2.grabCut(img, output_mask, None, bgdModel, fgdModel, iterations, cv2.GC_INIT_WITH_MASK)
 
 	# Deduce final mask
 	output_mask = np.where((output_mask==2)|(output_mask==0), 0, 1).astype('uint8')

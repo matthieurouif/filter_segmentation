@@ -15,7 +15,7 @@ model = coremltools.models.MLModel(model_path)
 # Image path
 # image_path = '../../../samples/person_matthieu.jpg'
 # image_path = '../../../samples/moto_man.jpg'
-image_path = '../../../samples/woman_car.jpg'
+image_path = '../../../samples/car_nico.jpg'
 # image_path = '/Users/vincent/Downloads/VOCdevkit/VOC2012/JPEGImages/2007_000452.jpg'
 
 # Read the input image
@@ -34,7 +34,7 @@ pred = predict(model, img_rgb_small)
 id = get_main_class(pred)
 print labels[id]
 
-id = 12
+# id = 12
 
 # plt.figure()
 # plt.imshow(img_rgb_small)
@@ -69,7 +69,7 @@ total = np.concatenate([top, bottom], axis=0)
 
 # Display
 plt.figure()
-plt.imshow(seg)
+plt.imshow(total)
 plt.axis('off')
 plt.show()
 exit()
