@@ -13,8 +13,86 @@
 //#include <opencv2/imgcodecs.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-//#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <algorithm>
+
+
+void generate_trimap(cv::Mat & pred, cv::Mat & trimap) {
+    
+    // Create trimap container
+    trimap = cv::Mat(pred.size(), pred.type());
+    
+    // Parameters
+    const int t0 = 0.05 * 255;
+    const int t1 = 0.95 * 255;
+    
+    // Go through image pixels
+    for (int y=0; y<pred.rows; ++y) {
+        for (int x=0; x<pred.cols; ++x) {
+            
+            // Get prediction value
+            const int val = pred.at<uchar>(cv::Point(x,y));
+            
+            // Create the trimap
+            if (val <= t0)
+                trimap.at<uchar>(cv::Point(x,y)) = cv::GC_BGD;
+            else if (val < 127)
+                trimap.at<uchar>(cv::Point(x,y)) = cv::GC_PR_BGD;
+            else if (val < t1)
+                trimap.at<uchar>(cv::Point(x,y)) = cv::GC_PR_FGD;
+            else
+                trimap.at<uchar>(cv::Point(x,y)) = cv::GC_FGD;
+        }
+    }
+}
+
+
+void deduce_mask(cv::Mat & trimap, cv::Mat & mask) {
+    
+    // Create mask container
+    mask = cv::Mat(trimap.size(), trimap.type());
+    
+    // Go through trimap pixels
+    for (int y=0; y<trimap.rows; ++y) {
+        for (int x=0; x<trimap.cols; ++x) {
+            
+            // Get prediction value
+            const int val = trimap.at<uchar>(cv::Point(x,y));
+            
+            // Create the trimap
+            if (val == cv::GC_BGD || val == cv::GC_PR_BGD)
+                mask.at<uchar>(cv::Point(x,y)) = 0;
+            else
+                mask.at<uchar>(cv::Point(x,y)) = 255;
+        }
+    }
+}
+
+
+void create_sticker(cv::Mat & image, cv::Mat & mask, cv::Mat & sticker) {
+    
+    // Create sticker container
+    sticker = cv::Mat(image.size(), image.type());
+    
+    // Fill the sticker
+    for (int y=0; y<image.rows; ++y) {
+        for (int x=0; x<image.cols; ++x) {
+            
+            if (mask.at<uchar>(y, x) == 255) {
+                sticker.at<cv::Vec3b>(y, x) = image.at<cv::Vec3b>(y,x);
+            }
+            else {
+                sticker.at<cv::Vec3b>(y, x)[0] = 255;
+                sticker.at<cv::Vec3b>(y, x)[1] = 255;
+                sticker.at<cv::Vec3b>(y, x)[2] = 255;
+            }
+        }
+    }
+    
+}
+
+
+
 
 @implementation GrabCut
 
@@ -137,10 +215,43 @@
         }
     }
     
-    cv::imshow("Image", cvImage);
-    cv::imshow("Predition", cvPrediction);
+    // Compute the trimap
+    cv::Mat trimap;
+    generate_trimap(cvPrediction, trimap);
+    
+    // Copute naive mask
+    cv::Mat mask0;
+    deduce_mask(trimap, mask0);
+    
+    // Apply grabcut
+    cv::Mat bgd_model;
+    cv::Mat fgd_model;
+    cv::grabCut(cvImage, trimap, cv::Rect(), bgd_model, fgd_model, 5, cv::GC_INIT_WITH_MASK);
+    
+    // Compute grabcut mask
+    cv::Mat mask1;
+    deduce_mask(trimap, mask1);
+    
+    // Generate stickers
+    cv::Mat sticker0, sticker1;
+    create_sticker(cvImage, mask0, sticker0);
+    create_sticker(cvImage, mask1, sticker1);
+    
+    // Display
+    //    cv::imshow("image", image);
+    cv::imshow("mask0", mask0);
+    cv::imshow("mask1", mask1);
+    cv::imshow("sticker0", sticker0);
+    cv::imshow("sticker1", sticker1);
     cv::waitKey();
     cv::destroyAllWindows();
+    
+    
+//    cv::imshow("Image", cvImage);
+//    cv::imshow("Predition", cvPrediction);
+//    cv::imshow("Mask0", mask0);
+//    cv::waitKey();
+//    cv::destroyAllWindows();
 }
 
 @end
