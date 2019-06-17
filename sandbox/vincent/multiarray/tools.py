@@ -126,6 +126,13 @@ def generate_red_illustration(rgb, mask, apply_rgb2bgr_conversion=False):
 		return output
 
 
+def generate_red_alpha_illustration(rgb, mask):
+    output = rgb.copy()
+    a = np.ones(mask.shape, np.uint8) * 255
+    output[:,:,0] = mask * a + (1-mask) * output[:,:,0]
+    return output
+
+
 def generate_sticker_illustration(rgb, mask, apply_rgb2bgr_conversion=False):
 	output = rgb.copy()
 	output[:, :, 0][mask == 0] = 255
@@ -135,6 +142,15 @@ def generate_sticker_illustration(rgb, mask, apply_rgb2bgr_conversion=False):
 		return cv2.cvtColor(output, cv2.COLOR_RGB2BGR)
 	else:
 		return output
+
+
+def generate_sticker_alpha_illustration(rgb, mask):
+    sticker = rgb.copy()
+    white = np.ones(mask.shape, np.uint8) * 255
+    sticker[:,:,0] = mask * sticker[:,:,0] + (1 - mask) * white
+    sticker[:,:,1] = mask * sticker[:,:,1] + (1 - mask) * white
+    sticker[:,:,2] = mask * sticker[:,:,2] + (1 - mask) * white
+    return sticker
 
 
 def compute_guided_filter_segmentation(img_y, pred):
