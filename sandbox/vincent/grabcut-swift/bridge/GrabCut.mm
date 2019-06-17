@@ -102,4 +102,45 @@
     cv::destroyAllWindows();    
 }
 
++ (void) processWithImage: (UInt8*)image
+                 imgWidth: (int32_t)imgWidth
+                imgHeight: (int32_t)imgHeight
+           imgBytesPerRow: (int32_t)imgBytesPerRow
+     imgBytesPerComponent: (int32_t)imgBytesPerComponent
+               prediction: (UInt8*)prediction
+                 preWidth: (int32_t)preWidth
+                preHeight: (int32_t)preHeight
+           preBytesPerRow: (int32_t)preBytesPerRow
+     preBytesPerComponent: (int32_t)preBytesPerComponent {
+    
+    // Create a Mat and fill it
+    cv::Mat cvImage = cv::Mat(imgHeight, imgWidth, CV_8UC3);
+    for (int j=0; j<imgHeight; j++) {
+        for (int i=0; i<imgWidth; i++) {
+            UInt8 r = image[j * imgBytesPerRow + i * imgBytesPerComponent + 0];
+            UInt8 g = image[j * imgBytesPerRow + i * imgBytesPerComponent + 1];
+            UInt8 b = image[j * imgBytesPerRow + i * imgBytesPerComponent + 2];
+            cv::Vec3b & color = cvImage.at<cv::Vec3b>(cv::Point(i,j));
+            color[0] = b;
+            color[1] = g;
+            color[2] = r;
+        }
+    }
+    
+    // Create a Mat and fill it
+    cv::Mat cvPrediction = cv::Mat(preHeight, preWidth, CV_8UC1);
+    for (int j=0; j<preHeight; j++) {
+        for (int i=0; i<preWidth; i++) {
+            UInt8 p = prediction[j * preBytesPerRow + i];
+            uint8 & color = cvPrediction.at<uint8>(cv::Point(i,j));
+            color = p;
+        }
+    }
+    
+    cv::imshow("Image", cvImage);
+    cv::imshow("Predition", cvPrediction);
+    cv::waitKey();
+    cv::destroyAllWindows();
+}
+
 @end
