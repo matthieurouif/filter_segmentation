@@ -88,14 +88,14 @@ let img_path = "/Users/vincent/data/Work/Projects/filter_segmentation/sandbox/vi
 let pre_path = "/Users/vincent/data/Work/Projects/filter_segmentation/sandbox/vincent/grabcut-c++/ref_pred.png"
 
 // Read the image
-let img = NSImage(contentsOfFile: img_path)
-let img_data = img?.tiffRepresentation
-let img_bitmap = NSBitmapImageRep(data: img_data!)
+var img = NSImage(contentsOfFile: img_path)
+var img_data = img?.tiffRepresentation
+var img_bitmap = NSBitmapImageRep(data: img_data!)
 
 // Read the prediction
-let pre = NSImage(contentsOfFile: pre_path)
-let pre_data = pre?.tiffRepresentation
-let pre_bitmap = NSBitmapImageRep(data: pre_data!)
+var pre = NSImage(contentsOfFile: pre_path)
+var pre_data = pre?.tiffRepresentation
+var pre_bitmap = NSBitmapImageRep(data: pre_data!)
 
 // Image parameters
 let img_width = Int(img!.size.width)
@@ -185,4 +185,3 @@ GrabCut.process(withImage: img_buffer,
                 preHeight: Int32(pre_height),
                 preBytesPerRow: Int32(pre_bytesPerRow),
                 preBytesPerComponent: Int32(pre_bytesPerComponent))
-

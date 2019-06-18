@@ -245,13 +245,6 @@ void create_sticker(cv::Mat & image, cv::Mat & mask, cv::Mat & sticker) {
     cv::imshow("sticker1", sticker1);
     cv::waitKey();
     cv::destroyAllWindows();
-    
-    
-//    cv::imshow("Image", cvImage);
-//    cv::imshow("Predition", cvPrediction);
-//    cv::imshow("Mask0", mask0);
-//    cv::waitKey();
-//    cv::destroyAllWindows();
 }
 
 @end

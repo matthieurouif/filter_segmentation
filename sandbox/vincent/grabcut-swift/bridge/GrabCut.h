@@ -31,5 +31,4 @@
            preBytesPerRow: (int32_t)preBytesPerRow
      preBytesPerComponent: (int32_t)preBytesPerComponent;
 
-
 @end
